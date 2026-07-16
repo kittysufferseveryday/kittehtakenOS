@@ -1,0 +1,38 @@
+/* Add these styles to your existing style.css file */
+
+/* --- Fullscreen Windows --- */
+.xp-window.fullscreen {
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: calc(100% - 30px) !important; /* Leaves room for taskbar */
+}
+.xp-window.fullscreen .xp-window-body {
+    height: 100% !important;
+}
+
+/* --- Taskbar Tabs Layout --- */
+.taskbar-tab {
+    height: 24px;
+    min-width: 100px;
+    max-width: 150px;
+    background: linear-gradient(to bottom, #3c7fb1 0%, #1a548b 100%);
+    border: 1px solid #08315a;
+    border-radius: 3px;
+    color: white;
+    display: flex;
+    align-items: center;
+    padding: 0 8px;
+    cursor: pointer;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    overflow: hidden;
+    box-shadow: inset 1px 1px 1px rgba(255,255,255,0.3);
+}
+.taskbar-tab:hover {
+    background: linear-gradient(to bottom, #5395c9 0%, #2465a3 100%);
+}
+.taskbar-tab.active-tab {
+    background: linear-gradient(to bottom, #16385c 0%, #2c68a6 100%);
+    box-shadow: inset -1px -1px 2px rgba(255,255,255,0.2);
+}

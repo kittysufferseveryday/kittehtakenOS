@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>kittyOS XP</title>
+    <style>
+        /* --- Core Reset & Variables --- */
+        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+        body, html { width: 100%; height: 100%; overflow: hidden; font-family: "Tahoma", sans-serif; font-size: 12px; }
+
+        :root {
+            --luna-blue: linear-gradient(to bottom, #0058e6 0%, #003db3 100%);
+            --luna-header: linear-gradient(to bottom, #0073ea 0%, #0054e3 12%, #003cdb 85%, #002cd0 100%);
+            --luna-start: linear-gradient(to bottom, #388e3c 0%, #2e7d32 100%);
+            --taskbar-bg: linear-gradient(to bottom, #245edb 0%, #1941a5 100%);
+        }
+
+        /* --- Boot Screen --- */
+        #boot-screen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: #000; color: #fff; z-index: 9999;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            transition: opacity 0.5s ease;
+        }
+        .boot-logo { font-size: 32px; font-weight: bold; margin-bottom: 20px; font-style: italic; }
+        .boot-progress-container { width: 150px; height: 12px; border: 2px solid #aaa; border-radius: 4px; overflow: hidden; position: relative; }
+        .boot-progress-bar {
+            width: 30px; height: 100%; background: linear-gradient(to right, #245edb, #0073ea, #245edb);
+            position: absolute; animation: loading-slide 1.5s infinite linear;
+        }
+        @keyframes loading-slide { 0% { left: -30px; } 100% { left: 150px; } }
+
+        /* --- Desktop Layout --- */
+        #desktop {
+            width: 100%; height: calc(100% - 30px);
+            background: #3a6ea5 url('assets/wallpaper.jpg') no-repeat center center/cover;
+            position: relative; padding: 10px;
+        }
+        .desktop-grid { display: flex; flex-direction: column; flex-wrap: wrap; height: 100%; width: 100px; gap: 15px; }
+        .desktop-icon {
+            width: 80px; text-align: center; color: white; cursor: pointer; text-shadow: 1px 1px 2px black;
+            display: flex; flex-direction: column; align-items: center;
+        }
+        .icon-img { 
+            width: 32px; height: 32px; 
+            background-color: rgba(255,255,255,0.3); 
+            border: 1px dashed rgba(255,255,255,0.5);
+            border-radius: 4px; margin-bottom: 4px; 
+        }
+
+        /* --- Windows System UI (Luna Style) --- */
+        .xp-window {
+            position: absolute; background-color: #f1efe7; border: 3px solid #0054e3;
+            border-top-left-radius: 7px; border-top-right-radius: 7px;
+            box-shadow: 4px 4px 10px rgba(0,0,0,0.3); display: flex; flex-direction: column; min-width: 200px;
+        }
+        .xp-window-header {
+            background: var(--luna-header); height: 30px; display: flex; align-items: center;
+            justify-content: space-between; padding: 0 8px; color: white; font-weight: bold; cursor: move;
+        }
+        .xp-window-title { display: flex; align-items: center; gap: 6px; }
+        .xp-window-controls { display: flex; gap: 2px; }
+        
+        .win-btn { width: 21px; height: 21px; border: 1px solid #fff; border-radius: 3px; cursor: pointer; font-weight: bold; color: white; line-height: 16px; font-size: 14px; text-align: center;}
+        .btn-min { background: #0054e3; }
+        .btn-min::before { content: "_"; position: relative; top: -4px; }
+        .btn-max { background: #0054e3; }
+        .btn-max::before { content: "▢"; position: relative; top: -2px; font-size: 10px; }
+        .btn-close { background: linear-gradient(to bottom, #e57373 0%, #d32f2f 100%); }
+        .btn-close::before { content: "×"; position: relative; top: -1px; }
+
+        .xp-window-body { display: flex; flex-grow: 1; height: 250px; background: #fff; margin: 2px; border: 1px solid #7f9db9; }
+        .xp-window-sidebar { width: 120px; background: linear-gradient(to bottom, #d6e4ff 0%, #9cbaff 100%); padding: 10px; border-right: 1px solid #7f9db9; }
+        .xp-window-main { flex-grow: 1; padding: 15px; overflow-y: auto; color: #000; }
+
+        /* --- Fullscreen Windows --- */
+        .xp-window.fullscreen {
+            top: 0 !important;
+            left: 0 !important;
+            width: 100% !important;
+            height: calc(100% - 30px) !important;
+        }
+        .xp-window.fullscreen .xp-window-body {
+            height: 100% !important;
+        }
+
+        /* --- Taskbar Architecture --- */
+        #taskbar {
+            position: fixed; bottom: 0; left: 0; width: 100%; height: 30px;
+            background: var(--taskbar-bg); z-index: 999; display: flex; justify-content: space-between; align-items: center;
+        }
+        #start-button {
+            height: 100%; background: var(--luna-start); border: none; padding: 0 15px;
+            color: white; font-size: 16px; font-style: italic; font-weight: bold;
+            border-top-right-radius: 10px; border-bottom-right-radius: 10px;
+            box-shadow: 2px 0 5px rgba(0,0,0,0.2); cursor: pointer; display: flex; align-items: center; gap: 5px;
+        }
+        #start-button:active { filter: brightness(0.9); }
+        #running-apps { flex-grow: 1; display: flex; align-items: center; padding-left: 10px; gap: 5px; }
+        
+        #system-tray {
+            height: 100%; background: #0f8fff; border-left: 1px solid #002cd0;
+            display: flex; align-items: center; padding: 0 12px; color: white; font-weight: bold; gap: 10px;
+        }
+
+        /* --- Taskbar Tabs Layout --- */
+        .taskbar-tab {
+            height: 24px; min-width: 100px; max-width: 150px;
+            background: linear-gradient(to bottom, #3c7fb1 0%, #1a548b 100%);
+            border: 1px solid #08315a; border-radius: 3px; color: white;
+            display: flex; align-items: center; padding: 0 8px; cursor: pointer;
+            text-overflow: ellipsis; white-space: nowrap; overflow: hidden;
+            box-shadow: inset 1px 1px 1px rgba(255,255,255,0.3);
+        }
+        .taskbar-tab:hover { background: linear-gradient(to bottom, #5395c9 0%, #2465a3 100%); }
+        .taskbar-tab.active-tab {
+            background: linear-gradient(to bottom, #16385c 0%, #2c68a6 100%);
+            box-shadow: inset -1px -1px 2px rgba(255,255,255,0.2);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 1. Boot Screen Overlay -->
+    <div id="boot-screen">
+        <div class="boot-logo">kittyOS<sup>XP</sup></div>
+        <div class="boot-progress-container">
+            <div class="boot-progress-bar"></div>
+        </div>
+    </div>
+
+    <!-- 2. Desktop Environment -->
+    <div id="desktop">
+        <div class="desktop-grid">
+            <div class="desktop-icon" data-window="about-win">
+                <div class="icon-img"></div>
+                <span class="icon-label">About Me</span>
+            </div>
+            <div class="desktop-icon" data-window="projects-win">
+                <div class="icon-img"></div>
+                <span class="icon-label">Projects</span>
+            </div>
+        </div>
+
+        <!-- ABOUT ME WINDOW -->
+        <div id="about-win" class="xp-window" style="top: 10%; left: 15%; width: 450px; display: none;">
+            <div class="xp-window-header">
+                <div class="xp-window-title"><span>About Me</span></div>
+                <div class="xp-window-controls">
+                    <button class="win-btn btn-min" aria-label="Minimize"></button>
+                    <button class="win-btn btn-max" aria-label="Maximize"></button>
+                    <button class="win-btn btn-close" aria-label="Close"></button>
+                </div>
+            </div>
+            <div class="xp-window-body">
+                <div class="xp-window-sidebar">
+                    <h3>User Info</h3>
+                    <p>Status: Online</p>
+                </div>
+                <div class="xp-window-main">
+                    <h2>Hi, I'm kittehtaken, lol</h2>
+                    <p>I am bi, no, not gay, since my boyfriend keeps making it say gay. <br>
+I like light violent games, like ultrakill. <br>
+I am VERY IMMATURE. and, i sometimes talk to AI whenever im bored. <br>
+My favorite color is mint green, purple, red, blue, and green :D. <br>
+i am really really easy to annoy sometimes, and.. also, huysadboy954 my beloved. <br>
+The reason why I made this (no i didnt, gemini did), is because i feel like the discord BIO is too small. </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- PROJECTS WINDOW -->
+        <div id="projects-win" class="xp-window" style="top: 20%; left: 25%; width: 500px; display: none;">
+            <div class="xp-window-header">
+                <div class="xp-window-title"><span>My Projects</span></div>
+                <div class="xp-window-controls">
+                    <button class="win-btn btn-min" aria-label="Minimize"></button>
+                    <button class="win-btn btn-max" aria-label="Maximize"></button>
+                    <button class="win-btn btn-close" aria-label="Close"></button>
+                </div>
+            </div>
+            <div class="xp-window-body">
+                <div class="xp-window-main">
+                    <h2>My Creations</h2>
+                    <p>Here is where your cool Roblox games or websites will go!</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3. Taskbar Environment -->
+    <div id="taskbar">
+        <button id="start-button"><span>start</span></button>
+        <div id="running-apps"></div>
+        <div id="system-tray"><div id="countdown-clock">12:00</div></div>
+    </div>
+
+    <!-- 4. Logic Script Layer -->
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            let highestZIndex = 10;
+            const bootScreen = document.getElementById("boot-screen");
+            const startButton = document.getElementById("start-button");
+            const runningAppsContainer = document.getElementById("running-apps");
+            const countdownClock = document.getElementById("countdown-clock");
+
+            // Boot Loader Timer
+            setTimeout(() => {
+                bootScreen.style.opacity = "0";
+                setTimeout(() => { bootScreen.style.display = "none"; }, 500);
+            }, 1500);
+
+            // Countdown Clock Loop
+            let currentMinutes = 12, currentSeconds = 0;
+            setInterval(() => {
+                if (currentMinutes === 0 && currentSeconds === 0) {
+                    setTimeout(() => { currentMinutes = 12; currentSeconds = 0; }, 500);
+                    return;
+                }
+                if (currentSeconds === 0) { currentMinutes--; currentSeconds = 59; } 
+                else { currentSeconds--; }
+                countdownClock.textContent = `${String(currentMinutes).padStart(2, '0')}:${String(currentSeconds).padStart(2, '0')}`;
+            }, 1000);
+
+            // Dynamic Taskbar Tab Creator
+            function updateTaskbarTabs() {
+                runningAppsContainer.innerHTML = ""; 
+                document.querySelectorAll(".xp-window").forEach(win => {
+                    if (win.style.display !== "none") {
+                        const titleText = win.querySelector(".xp-window-title span").textContent;
+                        const tab = document.createElement("div");
+                        tab.className = "taskbar-tab";
+                        if (win.classList.contains("active-focus") && !win.classList.contains("minimized")) {
+                            tab.classList.add("active-tab");
+                        }
+                        tab.textContent = titleText;
+                        
+                        tab.addEventListener("click", () => {
+                            if (win.classList.contains("minimized")) {
+                                win.style.display = "flex";
+                                win.classList.remove("minimized");
+                                bringToFront(win);
+                            } else if (win.classList.contains("active-focus")) {
+                                win.style.display = "none";
+                                win.classList.add("minimized");
+                            } else {
+                                bringToFront(win);
+                            }
+                            updateTaskbarTabs();
+                        });
+                        runningAppsContainer.appendChild(tab);
+                    }
+                });
+            }
+
+            function bringToFront(winElement) {
+                document.querySelectorAll(".xp-window").forEach(w => w.classList.remove("active-focus"));
+                highestZIndex++;
+                winElement.style.zIndex = highestZIndex;
+                winElement.classList.add("active-focus");
+                if (winElement.classList.contains("minimized")) {
+                    winElement.style.display = "flex";
+                    winElement.classList.remove("minimized");
+                }
+            }
+
+            // Window Control Behaviors
+            document.querySelectorAll(".xp-window").forEach(win => {
+                win.addEventListener("mousedown", () => {
+                    bringToFront(win);
+                    updateTaskbarTabs();
+                });
+
+                win.querySelector(".btn-close").addEventListener("click", (e) => {
+                    e.stopPropagation();
+                    win.style.display = "none";
+                    win.classList.remove("fullscreen", "minimized");
+                    updateTaskbarTabs();
+                });
+
+                win.querySelector(".btn-min").addEventListener("click", (e) => {
+                    e.stopPropagation();
+                    win.style.display = "none";
+                    win.classList.add("minimized");
+                    updateTaskbarTabs();
+                });
+
+                win.querySelector(".btn-max").addEventListener("click", (e) => {
+                    e.stopPropagation();
+                    win.classList.toggle("fullscreen");
+                    bringToFront(win);
+                });
+
+                setupWindowDrag(win, win.querySelector(".xp-window-header"));
+            });
+
+            document.querySelectorAll("[data-window]").forEach(trigger => {
+                trigger.addEventListener("click", () => {
+                    const targetWin = document.getElementById(trigger.getAttribute("data-window"));
+                    if (targetWin) {
+                        targetWin.style.display = "flex";
+                        targetWin.classList.remove("minimized");
+                        bringToFront(targetWin);
+                        updateTaskbarTabs();
+                    }
+                });
+            });
+
+            function setupWindowDrag(windowEl, headerEl) {
+                let posX = 0, posY = 0, mouseX = 0, mouseY = 0;
+                headerEl.onmousedown = (e) => {
+                    if (windowEl.classList.contains("fullscreen")) return;
+                    e.preventDefault();
+                    mouseX = e.clientX;
+                    mouseY = e.clientY;
+                    document.onmouseup = () => { document.onmouseup = null; document.onmousemove = null; };
+                    document.onmousemove = (ev) => {
+                        ev.preventDefault();
+                        posX = mouseX - ev.clientX;
+                        posY = mouseY - ev.clientY;
+                        mouseX = ev.clientX;
+                        mouseY = ev.clientY;
+                        windowEl.style.top = (windowEl.offsetTop - posY) + "px";
+                        windowEl.style.left = (windowEl.offsetLeft - posX) + "px";
+                    };
+                    bringToFront(windowEl);
+                    updateTaskbarTabs();
+                };
+            }
+        });
+    </script>
+</body>
+</html>

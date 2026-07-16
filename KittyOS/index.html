@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>kittyOS XP - Professional Portfolio</title>
+    <style>
+        /* --- Core Reset & Variables --- */
+        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+        body, html { width: 100%; height: 100%; overflow: hidden; font-family: "Tahoma", sans-serif; font-size: 12px; }
+
+        :root {
+            --luna-blue: linear-gradient(to bottom, #0058e6 0%, #003db3 100%);
+            --luna-header: linear-gradient(to bottom, #0073ea 0%, #0054e3 12%, #003cdb 85%, #002cd0 100%);
+            --luna-start: linear-gradient(to bottom, #388e3c 0%, #2e7d32 100%);
+            --taskbar-bg: linear-gradient(to bottom, #245edb 0%, #1941a5 100%);
+            --orange-warning: linear-gradient(to bottom, #ff9800 0%, #e65100 100%);
+        }
+
+        /* --- Boot Screen --- */
+        #boot-screen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: #000; color: #fff; z-index: 9999;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            transition: opacity 0.5s ease;
+            cursor: pointer;
+        }
+        .boot-logo { font-size: 32px; font-weight: bold; margin-bottom: 20px; font-style: italic; }
+        .boot-progress-container { width: 150px; height: 12px; border: 2px solid #aaa; border-radius: 4px; overflow: hidden; position: relative; }
+        .boot-progress-bar {
+            width: 30px; height: 100%; background: linear-gradient(to right, #245edb, #0073ea, #245edb);
+            position: absolute; animation: loading-slide 1.5s infinite linear;
+        }
+        @keyframes loading-slide { 0% { left: -30px; } 100% { left: 150px; } }
+
+        /* --- Fake Blue Screen of Death (BSOD) --- */
+        #bsod-screen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: #0000aa; color: #ffffff; z-index: 9998;
+            font-family: "Lucida Console", Monaco, monospace; padding: 40px;
+            display: none; line-height: 1.6;
+        }
+        .bsod-title { background-color: #ffffff; color: #0000aa; display: inline-block; padding: 2px 10px; margin-bottom: 20px; font-weight: bold; }
+
+        /* --- Desktop Layout --- */
+        #desktop {
+            width: 100%; height: calc(100% - 30px);
+            background: #3a6ea5 url('assets/wallpaper.jpg') no-repeat center center/cover;
+            position: relative; padding: 15px;
+        }
+        .desktop-grid { display: flex; flex-direction: column; flex-wrap: wrap; height: 100%; width: 180px; gap: 15px; align-content: flex-start; }
+        .desktop-icon {
+            width: 80px; text-align: center; color: white; cursor: pointer; text-shadow: 1px 1px 2px black;
+            display: flex; flex-direction: column; align-items: center; border: 1px solid transparent; padding: 4px; border-radius: 3px;
+        }
+        .desktop-icon:hover { background-color: rgba(255, 255, 255, 0.15); border: 1px dashed rgba(255, 255, 255, 0.3); }
+        .icon-img { 
+            width: 32px; height: 32px; 
+            background-size: contain; background-repeat: no-repeat; background-position: center;
+            margin-bottom: 4px; background-color: rgba(255,255,255,0.1); border-radius: 4px;
+        }
+
+        /* --- Windows System UI (Luna Style) --- */
+        .xp-window {
+            position: absolute; background-color: #f1efe7; border: 3px solid #0054e3;
+            border-top-left-radius: 7px; border-top-right-radius: 7px;
+            box-shadow: 4px 4px 12px rgba(0,0,0,0.4); display: flex; flex-direction: column; min-width: 280px; min-height: 200px;
+        }
+        .xp-window-header {
+            background: var(--luna-header); height: 30px; display: flex; align-items: center;
+            justify-content: space-between; padding: 0 8px; color: white; font-weight: bold; cursor: move;
+        }
+        .xp-window-title { display: flex; align-items: center; gap: 6px; }
+        .xp-title-icon { width: 16px; height: 16px; background-size: contain; background-repeat: no-repeat; background-position: center; }
+        .xp-window-controls { display: flex; gap: 2px; }
+        
+        .win-btn { width: 21px; height: 21px; border: 1px solid #fff; border-radius: 3px; cursor: pointer; font-weight: bold; color: white; line-height: 16px; font-size: 14px; text-align: center; display: flex; align-items: center; justify-content: center; }
+        .btn-min { background: #0054e3; }
+        .btn-min::before { content: "_"; position: relative; top: -4px; }
+        .btn-max { background: #0054e3; }
+        .btn-max::before { content: "▢"; position: relative; top: -1px; font-size: 10px; }
+        .btn-close { background: linear-gradient(to bottom, #e57373 0%, #d32f2f 100%); }
+        .btn-close::before { content: "×"; position: relative; top: -1px; }
+
+        .xp-window-body { display: flex; flex-grow: 1; background: #fff; margin: 2px; border: 1px solid #7f9db9; overflow: hidden; }
+        .xp-window-sidebar { width: 140px; background: linear-gradient(to bottom, #d6e4ff 0%, #9cbaff 100%); padding: 12px; border-right: 1px solid #7f9db9; color: #002cd0; }
+        .xp-window-sidebar h3 { font-size: 13px; margin-bottom: 8px; border-bottom: 1px dashed #7f9db9; padding-bottom: 4px; }
+        .xp-window-sidebar p { font-size: 11px; color: #333; line-height: 1.4; }
+        .xp-window-main { flex-grow: 1; padding: 15px; overflow-y: auto; color: #000; background: #ffffff; }
+
+        /* --- Fullscreen Windows --- */
+        .xp-window.fullscreen {
+            top: 0 !important; left: 0 !important;
+            width: 100% !important; height: calc(100% - 30px) !important;
+        }
+
+        /* --- Taskbar Architecture --- */
+        #taskbar {
+            position: fixed; bottom: 0; left: 0; width: 100%; height: 30px;
+            background: var(--taskbar-bg); z-index: 999; display: flex; justify-content: space-between; align-items: center;
+            box-shadow: inset 0 1px 2px rgba(255,255,255,0.4);
+        }
+        #start-button {
+            height: 100%; background: var(--luna-start); border: none; padding: 0 18px;
+            color: white; font-size: 16px; font-style: italic; font-weight: bold;
+            border-top-right-radius: 12px; border-bottom-right-radius: 12px;
+            box-shadow: 3px 0 5px rgba(0,0,0,0.3); cursor: pointer; display: flex; align-items: center; gap: 6px;
+        }
+        #start-button:active { filter: brightness(0.85); }
+        #running-apps { flex-grow: 1; display: flex; align-items: center; padding-left: 10px; gap: 5px; overflow-x: auto; height: 100%; }
+        #system-tray {
+            height: 100%; background: #0f8fff; border-left: 1px solid #002cd0;
+            display: flex; align-items: center; padding: 0 12px; color: white; font-weight: bold; gap: 10px;
+            box-shadow: inset 1px 0 2px rgba(0,0,0,0.2);
+        }
+
+        /* --- Taskbar Tabs Layout --- */
+        .taskbar-tab {
+            height: 24px; min-width: 110px; max-width: 150px;
+            background: linear-gradient(to bottom, #3c7fb1 0%, #1a548b 100%);
+            border: 1px solid #08315a; border-radius: 3px; color: white;
+            display: flex; align-items: center; padding: 0 8px; cursor: pointer;
+            text-overflow: ellipsis; white-space: nowrap; overflow: hidden;
+            box-shadow: inset 1px 1px 1px rgba(255,255,255,0.3); gap: 6px;
+        }
+        .taskbar-tab:hover { background: linear-gradient(to bottom, #5395c9 0%, #2465a3 100%); }
+        .taskbar-tab.active-tab {
+            background: linear-gradient(to bottom, #16385c 0%, #2c68a6 100%);
+            box-shadow: inset -1px -1px 2px rgba(255,255,255,0.2);
+        }
+        .tab-icon { width: 14px; height: 14px; background-size: contain; background-repeat: no-repeat; background-position: center; }
+
+        /* --- Start Menu Overlay --- */
+        #start-menu {
+            position: fixed; bottom: 30px; left: 0; width: 380px; background: #245edb;
+            border: 2px solid #003db3; border-top-left-radius: 6px; border-top-right-radius: 6px;
+            box-shadow: 3px -3px 15px rgba(0,0,0,0.4); z-index: 1000; display: none; flex-direction: column;
+        }
+        .start-menu-header {
+            background: var(--luna-header); padding: 12px; display: flex; align-items: center; gap: 10px;
+            color: white; font-weight: bold; font-size: 14px; border-bottom: 2px solid #ff9800;
+        }
+        .user-avatar { width: 40px; height: 40px; background: #fff url('assets/about-icon.png') no-repeat center/cover; border: 2px solid #fff; border-radius: 4px; box-shadow: 1px 1px 4px rgba(0,0,0,0.3); }
+        .start-menu-body { display: flex; background: #ffffff; }
+        .start-menu-left { width: 55%; background: #fff; padding: 8px; display: flex; flex-direction: column; gap: 4px; }
+        .start-menu-right { width: 45%; background: #cbdaf5; padding: 8px; border-left: 1px solid #9cbaff; display: flex; flex-direction: column; gap: 4px; }
+        .menu-item { display: flex; align-items: center; gap: 8px; padding: 6px 8px; cursor: pointer; border-radius: 3px; color: #333; }
+        .menu-item:hover { background-color: #316ac5; color: white; }
+        .menu-item-icon { width: 16px; height: 16px; background-size: contain; background-repeat: no-repeat; background-position: center; }
+        .start-menu-footer { background: var(--luna-header); padding: 8px 15px; display: flex; justify-content: flex-end; gap: 12px; border-top: 1px solid #002cd0; }
+        .footer-btn { 
+            background: var(--orange-warning); border: 1px solid #fff; border-radius: 3px; color: white; 
+            padding: 4px 10px; font-weight: bold; cursor: pointer; font-size: 11px;
+        }
+        .footer-btn:active { filter: brightness(0.9); }
+
+        /* --- Specific Application Styles --- */
+        /* Internet Explorer */
+        .ie-toolbar { background: #f1efe7; border-bottom: 1px solid #7f9db9; padding: 4px 8px; display: flex; align-items: center; gap: 6px; }
+        .ie-addr-bar { flex-grow: 1; border: 1px solid #7f9db9; padding: 2px 6px; font-family: monospace; background: white; color: #333; outline: none; }
+        .ie-portal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 15px; }
+        .ie-link-card { border: 1px solid #7f9db9; border-radius: 4px; padding: 10px; background: #fbfbfc; text-decoration: none; color: #002cd0; font-weight: bold; display: flex; align-items: center; gap: 8px; }
+        .ie-link-card:hover { background: #e6f0ff; border-color: #316ac5; }
+
+        /* Notepad Editor */
+        .notepad-textarea { width: 100%; height: 100%; border: none; outline: none; resize: none; font-family: "Courier New", Courier, monospace; font-size: 13px; padding: 8px; color: #000; }
+        .notepad-controls { background: #f1efe7; border-bottom: 1px solid #7f9db9; padding: 2px 8px; font-size: 11px; display: flex; gap: 12px; color: #333; }
+        .notepad-menu-btn { cursor: pointer; }
+        .notepad-menu-btn:hover { text-decoration: underline; }
+
+        /* MS Paint Simulator */
+        .paint-toolbar { background: #f1efe7; border-right: 1px solid #7f9db9; width: 50px; display: flex; flex-direction: column; align-items: center; padding: 8px 0; gap: 8px; }
+        .paint-canvas-container { flex-grow: 1; background: #808080; padding: 5px; overflow: auto; position: relative; }
+        .paint-color-btn { width: 24px; height: 24px; border: 2px inset #fff; cursor: pointer; border-radius: 2px; }
+        .paint-clear-btn { padding: 2px 4px; font-size: 10px; cursor: pointer; }
+        #paint-canvas { background: white; cursor: crosshair; display: block; }
+
+        /* Disk explorer (My Computer) */
+        .disk-row { display: flex; align-items: center; gap: 15px; margin-bottom: 15px; }
+        .disk-bar-container { background: #ccc; border: 1px solid #7f9db9; border-radius: 2px; width: 150px; height: 14px; overflow: hidden; position: relative; }
+        .disk-bar-fill { background: linear-gradient(to right, #4caf50, #8bc34a); height: 100%; width: 78%; }
+
+        /* Recycle Bin Style */
+        .trash-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(70px, 1fr)); gap: 10px; }
+        .trash-item { display: flex; flex-direction: column; align-items: center; text-align: center; font-size: 11px; cursor: pointer; padding: 4px; }
+        .trash-item:hover { background-color: rgba(0, 0, 0, 0.05); border-radius: 4px; }
+    </style>
+</head>
+<body>
+
+    <!-- 1. Boot Screen Overlay -->
+    <div id="boot-screen">
+        <div class="boot-logo">kittyOS<sup>XP</sup></div>
+        <div class="boot-progress-container">
+            <div class="boot-progress-bar"></div>
+        </div>
+        <div style="font-size: 10px; color: #888; margin-top: 15px;">Click anywhere to boot with sound!</div>
+    </div>
+
+    <!-- 2. Blue Screen of Death (BSOD) Error Mock -->
+    <div id="bsod-screen">
+        <div class="bsod-title">kittyOS_EXCEPTION_ERROR</div>
+        <p>A fatal exception 0E has occurred at 0028:C0011E06 in UXD kittyOS(01). <br>
+        The current application will be terminated to prevent system damage.</p>
+        <br>
+        <p>* Press any key or click anywhere to wait for system recovery.</p>
+        <p>* Double-clicking the desktop wallpaper caused this issue.</p>
+        <br>
+        <p>Error Code: 0x000000D1 (DRIVER_IRQL_NOT_LESS_OR_EQUAL)</p>
+        <p>System restoring dynamically in 4 seconds...</p>
+    </div>
+
+    <!-- 3. Desktop Environment -->
+    <div id="desktop">
+        <div class="desktop-grid">
+            <!-- Icon 1: About Me -->
+            <div class="desktop-icon" data-window="about-win">
+                <div class="icon-img" style="background-image: url('assets/about-icon.png');"></div>
+                <span class="icon-label">About Me</span>
+            </div>
+            
+            <!-- Icon 2: Projects -->
+            <div class="desktop-icon" data-window="projects-win">
+                <div class="icon-img" style="background-image: url('assets/projects-icon.png');"></div>
+                <span class="icon-label">Projects</span>
+            </div>
+
+            <!-- Icon 3: Internet Explorer -->
+            <div class="desktop-icon" data-window="ie-win">
+                <div class="icon-img" style="background-image: url('assets/ie-icon.png');"></div>
+                <span class="icon-label">Internet Explorer</span>
+            </div>
+
+            <!-- Icon 4: My Computer -->
+            <div class="desktop-icon" data-window="computer-win">
+                <div class="icon-img" style="background-image: url('assets/computer-icon.png');"></div>
+                <span class="icon-label">My Computer</span>
+            </div>
+
+            <!-- Icon 5: Notepad -->
+            <div class="desktop-icon" data-window="notepad-win">
+                <div class="icon-img" style="background-image: url('assets/notepad-icon.png');"></div>
+                <span class="icon-label">Notepad</span>
+            </div>
+
+            <!-- Icon 6: MS Paint -->
+            <div class="desktop-icon" data-window="paint-win">
+                <div class="icon-img" style="background-image: url('assets/paint-icon.png');"></div>
+                <span class="icon-label">Paint</span>
+            </div>
+
+            <!-- Icon 7: Recycle Bin -->
+            <div class="desktop-icon" data-window="recycle-win">
+                <div class="icon-img" style="background-image: url('assets/recycle-icon.png');"></div>
+                <span class="icon-label">Recycle Bin</span>
+            </div>
+        </div>
+
+        <!-- --- WINDOWS SYSTEM ARCHITECTURE --- -->
+
+        <!-- ABOUT ME WINDOW -->
+        <div id="about-win" class="xp-window" data-icon="assets/about-icon.png" style="top: 8%; left: 20%; width: 460px; display: none;">
+            <div class="xp-window-header">
+                <div class="xp-window-title">
+                    <div class="xp-title-icon" style="background-image: url('assets/about-icon.png');"></div>
+                    <span>About Me</span>
+                </div>
+                <div class="xp-window-controls">
+                    <button class="win-btn btn-min"></button>
+                    <button class="win-btn btn-max"></button>
+                    <button class="win-btn btn-close"></button>
+                </div>
+            </div>
+            <div class="xp-window-body">
+                <div class="xp-window-sidebar">
+                    <h3>User Profile</h3>
+                    <p>Name: Kitty Developer<br>OS: kittyOS XP<br>Status: Building Cool Things</p>
+                </div>
+                <div class="xp-window-main">
+                    <h2>Hi, I am kitty! Welcome to my (ai generated) Interactive OS!</h2><br>
+                    <p>This is my complete portfolio website, basically just made for, well, introducing myself and other stuff. I dont know.</p><br>
+                    <p>Bio: I am bi, no, not gay, since my boyfriend keeps making it say gay. <br>
+I like light violent games, like ultrakill. <br>
+I am VERY IMMATURE. and, i sometimes talk to AI whenever im bored. <br>
+My favorite color is mint green, purple, red, blue, and green :D. <br>
+i am really really easy to annoy sometimes, and.. also, huysadboy954 my beloved. <br>
+The reason why I made this (no i didnt, gemini did), is because i feel like the discord BIO is too small.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- PROJECTS WINDOW -->
+        <div id="projects-win" class="xp-window" data-icon="assets/projects-icon.png" style="top: 15%; left: 25%; width: 480px; display: none;">
+            <div class="xp-window-header">
+                <div class="xp-window-title">
+                    <div class="xp-title-icon" style="background-image: url('assets/projects-icon.png');"></div>
+                    <span>My Projects</span>
+                </div>
+                <div class="xp-window-controls">
+                    <button class="win-btn btn-min"></button>
+                    <button class="win-btn btn-max"></button>
+                    <button class="win-btn btn-close"></button>
+                </div>
+            </div>
+            <div class="xp-window-body">
+                <div class="xp-window-main">
+                    <h2>My Creations</h2><br>
+                    <p>Double-click these program notes to view what I'm currently working on:</p><br>
+                    <ul>
+                        <li><strong>Roblox Game Development:</strong> Building scripting sandboxes and immersive worlds.</li><br>
+                        <li><strong>Web OS Portfolio:</strong> This exact project running cleanly using Vanilla JavaScript!</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- INTERNET EXPLORER -->
+        <div id="ie-win" class="xp-window" data-icon="assets/ie-icon.png" style="top: 10%; left: 18%; width: 550px; display: none;">
+            <div class="xp-window-header">
+                <div class="xp-window-title">
+                    <div class="xp-title-icon" style="background-image: url('assets/ie-icon.png');"></div>
+                    <span>Internet Explorer</span>
+                </div>
+                <div class="xp-window-controls">
+                    <button class="win-btn btn-min"></button>
+                    <button class="win-btn btn-max"></button>
+                    <button class="win-btn btn-close"></button>
+                </div>
+            </div>
+            <div class="ie-toolbar">
+                <span>Address</span>
+                <input type="text" class="ie-addr-bar" value="http://www.kittyOS-network.com/links" readonly>
+            </div>
+            <div class="xp-window-body" style="height: 300px;">
+                <div class="xp-window-main">
+                    <h2>Kitty Portal Links</h2>
+                    <p>Click these links to head outside of kittyOS:</p>
+                    <div class="ie-portal-grid">
+                        <a href="https://github.com" target="_blank" class="ie-link-card">GitHub Profile</a>
+                        <a href="https://youtube.com" target="_blank" class="ie-link-card">YouTube Channel</a>
+                        <a href="https://roblox.com" target="_blank" class="ie-link-card">Roblox Profile</a>
+                        <a href="https://discord.com" target="_blank" class="ie-link-card">Discord Server</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- MY COMPUTER -->
+        <div id="computer-win" class="xp-window" data-icon="assets/computer-icon.png" style="top: 22%; left: 12%; width: 440px; display: none;">
+            <div class="xp-window-header">
+                <div class="xp-window-title">
+                    <div class="xp-title-icon" style="background-image: url('assets/computer-icon.png');"></div>
+                    <span>My Computer</span>
+                </div>
+                <div class="xp-window-controls">
+                    <button class="win-btn btn-min"></button>
+                    <button class="win-btn btn-max"></button>
+                    <button class="win-btn btn-close"></button>
+                </div>
+            </div>
+            <div class="xp-window-body">
+                <div class="xp-window-sidebar">
+                    <h3>System Stats</h3>
+                    <p>OS: kittyOS XP v1.0<br>Mem: 64MB EDO RAM</p>
+                </div>
+                <div class="xp-window-main">
+                    <h3>Hard Disk Drives</h3><br>
+                    <div class="disk-row">
+                        <div class="xp-title-icon" style="background-image: url('assets/computer-icon.png');"></div>
+                        <div>
+                            <strong>Local Disk (C:)</strong><br>
+                            <div class="disk-bar-container"><div class="disk-bar-fill"></div></div>
+                            <span style="font-size: 10px; color: #555;">12.4 GB free of 15.0 GB</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- NOTEPAD -->
+        <div id="notepad-win" class="xp-window" data-icon="assets/notepad-icon.png" style="top: 30%; left: 30%; width: 400px; display: none;">
+            <div class="xp-window-header">
+                <div class="xp-window-title">
+                    <div class="xp-title-icon" style="background-image: url('assets/notepad-icon.png');"></div>
+                    <span>Notepad - Untitled</span>
+                </div>
+                <div class="xp-window-controls">
+                    <button class="win-btn btn-min"></button>
+                    <button class="win-btn btn-max"></button>
+                    <button class="win-btn btn-close"></button>
+                </div>
+            </div>
+            <div class="notepad-controls">
+                <span class="notepad-menu-btn" onclick="alert('Note Saved to memory!')">Save</span>
+                <span class="notepad-menu-btn" onclick="document.getElementById('notepad-text').value = '';">Clear</span>
+            </div>
+            <div class="xp-window-body" style="height: 200px;">
+                <textarea id="notepad-text" class="notepad-textarea" placeholder="Type notes here..."></textarea>
+            </div>
+        </div>
+
+        <!-- MS PAINT -->
+        <div id="paint-win" class="xp-window" data-icon="assets/paint-icon.png" style="top: 5%; left: 35%; width: 480px; display: none;">
+            <div class="xp-window-header">
+                <div class="xp-window-title">
+                    <div class="xp-title-icon" style="background-image: url('assets/paint-icon.png');"></div>
+                    <span>Paint</span>
+                </div>
+                <div class="xp-window-controls">
+                    <button class="win-btn btn-min"></button>
+                    <button class="win-btn btn-max"></button>
+                    <button class="win-btn btn-close"></button>
+                </div>
+            </div>
+            <div class="xp-window-body" style="height: 280px;">
+                <div class="paint-toolbar">
+                    <div class="paint-color-btn" style="background-color: #000000;" data-color="#000000"></div>
+                    <div class="paint-color-btn" style="background-color: #ff0000;" data-color="#ff0000"></div>
+                    <div class="paint-color-btn" style="background-color: #00ff00;" data-color="#00ff00"></div>
+                    <div class="paint-color-btn" style="background-color: #0000ff;" data-color="#0000ff"></div>
+                    <div class="paint-color-btn" style="background-color: #ffff00;" data-color="#ffff00"></div>
+                    <button class="paint-clear-btn" id="paint-clear">Clear</button>
+                </div>
+                <div class="paint-canvas-container">
+                    <canvas id="paint-canvas" width="400" height="260"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- RECYCLE BIN -->
+        <div id="recycle-win" class="xp-window" data-icon="assets/recycle-icon.png" style="top: 40%; left: 15%; width: 350px; display: none;">
+            <div class="xp-window-header">
+                <div class="xp-window-title">
+                    <div class="xp-title-icon" style="background-image: url('assets/recycle-icon.png');"></div>
+                    <span>Recycle Bin</span>
+                </div>
+                <div class="xp-window-controls">
+                    <button class="win-btn btn-min"></button>
+                    <button class="win-btn btn-max"></button>
+                    <button class="win-btn btn-close"></button>
+                </div>
+            </div>
+            <div class="xp-window-body">
+                <div class="xp-window-main">
+                    <div class="trash-grid">
+                        <div class="trash-item" onclick="alert('Windows Vista Installer: Deleted for being too slow.')">
+                            <div class="xp-title-icon" style="background-image: url('assets/computer-icon.png'); width: 24px; height: 24px;"></div>
+                            <span>Vista Setup</span>
+                        </div>
+                        <div class="trash-item" onclick="alert('Homework.docx: Deleted for coding practice.')">
+                            <div class="xp-title-icon" style="background-image: url('assets/notepad-icon.png'); width: 24px; height: 24px;"></div>
+                            <span>Homework</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 4. Taskbar Environment -->
+    <div id="taskbar">
+        <button id="start-button">
+            <span style="font-weight: bold;">start</span>
+        </button>
+        <div id="running-apps"></div>
+        <div id="system-tray">
+            <div id="countdown-clock">12:00</div>
+        </div>
+    </div>
+
+    <!-- 5. Start Menu Overlay -->
+    <div id="start-menu">
+        <div class="start-menu-header">
+            <div class="user-avatar"></div>
+            <span>Administrator</span>
+        </div>
+        <div class="start-menu-body">
+            <div class="start-menu-left">
+                <div class="menu-item" data-window="about-win">
+                    <div class="menu-item-icon" style="background-image: url('assets/about-icon.png');"></div>
+                    <span>About Me</span>
+                </div>
+                <div class="menu-item" data-window="projects-win">
+                    <div class="menu-item-icon" style="background-image: url('assets/projects-icon.png');"></div>
+                    <span>Projects</span>
+                </div>
+                <div class="menu-item" data-window="notepad-win">
+                    <div class="menu-item-icon" style="background-image: url('assets/notepad-icon.png');"></div>
+                    <span>Notepad</span>
+                </div>
+            </div>
+            <div class="start-menu-right">
+                <div class="menu-item font-bold" data-window="computer-win">
+                    <div class="menu-item-icon" style="background-image: url('assets/computer-icon.png');"></div>
+                    <strong>My Computer</strong>
+                </div>
+                <div class="menu-item font-bold" data-window="recycle-win">
+                    <div class="menu-item-icon" style="background-image: url('assets/recycle-icon.png');"></div>
+                    <strong>Recycle Bin</strong>
+                </div>
+            </div>
+        </div>
+        <div class="start-menu-footer">
+            <button class="footer-btn" onclick="alert('Logging off...')">Log Off</button>
+            <button class="footer-btn" onclick="alert('Shutting down...')">Shut Down</button>
+        </div>
+    </div>
+
+    <!-- Audio Element Assets -->
+    <audio id="snd-startup" src="assets/startup.wav" preload="auto"></audio>
+    <audio id="snd-click" src="assets/click.wav" preload="auto"></audio>
+    <audio id="snd-meow" src="assets/meow.wav" preload="auto"></audio>
+
+    <!-- 6. Logic Script Layer -->
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            let highestZIndex = 10;
+            let startupSoundPlayed = false;
+
+            const bootScreen = document.getElementById("boot-screen");
+            const bsodScreen = document.getElementById("bsod-screen");
+            const startButton = document.getElementById("start-button");
+            const startMenu = document.getElementById("start-menu");
+            const runningAppsContainer = document.getElementById("running-apps");
+            const countdownClock = document.getElementById("countdown-clock");
+            
+            const sndStartup = document.getElementById("snd-startup");
+            const sndClick = document.getElementById("snd-click");
+            const sndMeow = document.getElementById("snd-meow");
+
+            // Play startup sound
+            function playSound(audioEl) {
+                if(audioEl) {
+                    audioEl.currentTime = 0;
+                    audioEl.play().catch(e => console.log("Audio waiting for active input"));
+                }
+            }
+
+            // Boot Sequence
+            setTimeout(() => {
+                bootScreen.style.opacity = "0";
+                setTimeout(() => { 
+                    bootScreen.style.display = "none"; 
+                    if (!startupSoundPlayed) {
+                        playSound(sndStartup);
+                        startupSoundPlayed = true;
+                    }
+                }, 500);
+            }, 1500);
+
+            // Bypass auto-play block on first click
+            document.addEventListener("click", () => {
+                if(!startupSoundPlayed) {
+                    playSound(sndStartup);
+                    startupSoundPlayed = true;
+                }
+            }, { once: true });
+
+            // Clock Countdown & Meow Event Loop
+            let currentMinutes = 12, currentSeconds = 0;
+            let loopLock = false;
+
+            setInterval(() => {
+                if (loopLock) return;
+
+                if (currentMinutes === 0 && currentSeconds === 0) {
+                    loopLock = true;
+                    playSound(sndMeow);
+                    
+                    setTimeout(() => { 
+                        currentMinutes = 12; 
+                        currentSeconds = 0; 
+                        loopLock = false;
+                    }, 500);
+                    return;
+                }
+
+                if (currentSeconds === 0) { 
+                    currentMinutes--; 
+                    currentSeconds = 59; 
+                } else { 
+                    currentSeconds--; 
+                }
+                countdownClock.textContent = `${String(currentMinutes).padStart(2, '0')}:${String(currentSeconds).padStart(2, '0')}`;
+            }, 1000);
+
+            // Start Menu Setup
+            startButton.addEventListener("click", (e) => {
+                e.stopPropagation();
+                playSound(sndClick);
+                startMenu.style.display = startMenu.style.display === "flex" ? "none" : "flex";
+            });
+
+            document.addEventListener("click", () => {
+                startMenu.style.display = "none";
+            });
+            startMenu.addEventListener("click", (e) => e.stopPropagation());
+
+            // Window Focus & Taskbar Tab Rendering
+            function updateTaskbarTabs() {
+                runningAppsContainer.innerHTML = ""; 
+                document.querySelectorAll(".xp-window").forEach(win => {
+                    if (win.style.display !== "none") {
+                        const titleText = win.querySelector(".xp-window-title span").textContent;
+                        const iconSrc = win.getAttribute("data-icon") || "";
+                        
+                        const tab = document.createElement("div");
+                        tab.className = "taskbar-tab";
+                        if (win.classList.contains("active-focus") && !win.classList.contains("minimized")) {
+                            tab.classList.add("active-tab");
+                        }
+                        
+                        if(iconSrc) {
+                            const tabIcon = document.createElement("div");
+                            tabIcon.className = "tab-icon";
+                            tabIcon.style.backgroundImage = `url('${iconSrc}')`;
+                            tab.appendChild(tabIcon);
+                        }
+                        
+                        const tabText = document.createElement("span");
+                        tabText.textContent = titleText;
+                        tab.appendChild(tabText);
+                        
+                        tab.addEventListener("click", (e) => {
+                            e.stopPropagation();
+                            playSound(sndClick);
+                            if (win.classList.contains("minimized")) {
+                                win.style.display = "flex";
+                                win.classList.remove("minimized");
+                                bringToFront(win);
+                            } else if (win.classList.contains("active-focus")) {
+                                win.style.display = "none";
+                                win.classList.add("minimized");
+                            } else {
+                                bringToFront(win);
+                            }
+                            updateTaskbarTabs();
+                        });
+                        runningAppsContainer.appendChild(tab);
+                    }
+                });
+            }
+
+            function bringToFront(winElement) {
+                document.querySelectorAll(".xp-window").forEach(w => w.classList.remove("active-focus"));
+                highestZIndex++;
+                winElement.style.zIndex = highestZIndex;
+                winElement.classList.add("active-focus");
+                if (winElement.classList.contains("minimized")) {
+                    winElement.style.display = "flex";
+                    winElement.classList.remove("minimized");
+                }
+            }
+
+            // Window Controller Listeners
+            document.querySelectorAll(".xp-window").forEach(win => {
+                win.addEventListener("mousedown", () => {
+                    bringToFront(win);
+                    updateTaskbarTabs();
+                });
+
+                win.querySelector(".btn-close").addEventListener("click", (e) => {
+                    e.stopPropagation();
+                    playSound(sndClick);
+                    win.style.display = "none";
+                    win.classList.remove("fullscreen", "minimized");
+                    updateTaskbarTabs();
+                });
+
+                win.querySelector(".btn-min").addEventListener("click", (e) => {
+                    e.stopPropagation();
+                    playSound(sndClick);
+                    win.style.display = "none";
+                    win.classList.add("minimized");
+                    updateTaskbarTabs();
+                });
+
+                win.querySelector(".btn-max").addEventListener("click", (e) => {
+                    e.stopPropagation();
+                    playSound(sndClick);
+                    win.classList.toggle("fullscreen");
+                    bringToFront(win);
+                });
+
+                setupWindowDrag(win, win.querySelector(".xp-window-header"));
+            });
+
+            // App opening bindings
+            document.querySelectorAll("[data-window]").forEach(trigger => {
+                trigger.addEventListener("click", (e) => {
+                    e.stopPropagation();
+                    const targetWin = document.getElementById(trigger.getAttribute("data-window"));
+                    if (targetWin) {
+                        playSound(sndClick);
+                        targetWin.style.display = "flex";
+                        targetWin.classList.remove("minimized");
+                        bringToFront(targetWin);
+                        updateTaskbarTabs();
+                    }
+                });
+            });
+
+            // Standard Dragger logic
+            function setupWindowDrag(windowEl, headerEl) {
+                let posX = 0, posY = 0, mouseX = 0, mouseY = 0;
+                headerEl.onmousedown = (e) => {
+                    if (windowEl.classList.contains("fullscreen")) return;
+                    e.preventDefault();
+                    mouseX = e.clientX;
+                    mouseY = e.clientY;
+                    document.onmouseup = () => { document.onmouseup = null; document.onmousemove = null; };
+                    document.onmousemove = (ev) => {
+                        ev.preventDefault();
+                        posX = mouseX - ev.clientX;
+                        posY = mouseY - ev.clientY;
+                        mouseX = ev.clientX;
+                        mouseY = ev.clientY;
+                        windowEl.style.top = (windowEl.offsetTop - posY) + "px";
+                        windowEl.style.left = (windowEl.offsetLeft - posX) + "px";
+                    };
+                    bringToFront(windowEl);
+                    updateTaskbarTabs();
+                };
+            }
+
+            // --- Paint Application Logic ---
+            const canvas = document.getElementById("paint-canvas");
+            const ctx = canvas.getContext("2d");
+            let painting = false;
+            let brushColor = "#000000";
+
+            function startPosition(e) {
+                painting = true;
+                draw(e);
+            }
+            function finishedPosition() {
+                painting = false;
+                ctx.beginPath();
+            }
+            function draw(e) {
+                if (!painting) return;
+                ctx.lineWidth = 4;
+                ctx.lineCap = "round";
+                ctx.strokeStyle = brushColor;
+
+                const rect = canvas.getBoundingClientRect();
+                ctx.lineTo(e.clientX - rect.left, e.clientY - rect.top);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(e.clientX - rect.left, e.clientY - rect.top);
+            }
+
+            canvas.addEventListener("mousedown", startPosition);
+            canvas.addEventListener("mouseup", finishedPosition);
+            canvas.addEventListener("mousemove", draw);
+
+            document.querySelectorAll(".paint-color-btn").forEach(btn => {
+                btn.addEventListener("click", () => {
+                    brushColor = btn.getAttribute("data-color");
+                });
+            });
+            document.getElementById("paint-clear").addEventListener("click", () => {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+            });
+
+            // --- Easter Egg: BSOD trigger on multiple background clicks ---
+            const desktopWallpaper = document.getElementById("desktop");
+            let clickCount = 0;
+            desktopWallpaper.addEventListener("click", (e) => {
+                if (e.target === desktopWallpaper) {
+                    clickCount++;
+                    if (clickCount >= 3) {
+                        bsodScreen.style.display = "block";
+                        clickCount = 0;
+                        setTimeout(() => {
+                            bsodScreen.style.display = "none";
+                            playSound(sndStartup);
+                        }, 4000);
+                    }
+                }
+            });
+        });
+    </script>
+</body>
+</html>
